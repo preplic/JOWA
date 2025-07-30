@@ -14,7 +14,7 @@ eval/reproduce_JOWA_results_in_table_2.py
 results/results.csv
 dataset/downsampled
 dataset/original
-
+checkpoints/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
