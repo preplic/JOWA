@@ -4,6 +4,7 @@ wandb
 outputs*
 results_*
 slurm*
+2600ROMS*
 experiments
 media
 *aggregaded_scores.csv
@@ -13,8 +14,12 @@ eval/base_scores.py
 eval/reproduce_JOWA_results_in_table_2.py
 results/results.csv
 dataset/downsampled
+dataset/downsampled_test
 dataset/original
+dataset/finetune/**
 checkpoints/**
+*.zip
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

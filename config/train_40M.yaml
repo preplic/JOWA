@@ -9,7 +9,7 @@ wandb:
   project: JOWA
   entity: null
   name: batch_size_${training.world.batch_size}_wm_lr_${training.world.first_stage.learning_rate}_critic_lr_${training.action.learning_rate}_num_q_${critic_head.num_q}
-  group: pretraining
+  group: few_test
   tags: null
   notes: null
 
@@ -23,23 +23,23 @@ initialization:
 
 common:
   envs: [
-    Phoenix, 
-    Centipede, 
-    SpaceInvaders, 
-    Carnival, 
-    NameThisGame, 
-    Assault, 
+    # Phoenix, 
+    # Centipede, 
+    # SpaceInvaders, 
+    # Carnival, 
+    # NameThisGame, 
+    # Assault, 
     # Atlantis, 
     # BeamRider, 
     # Seaquest, 
     # TimePilot, 
     # Berzerk, 
     # Zaxxon, 
-    # DemonAttack, 
+    DemonAttack, 
     # ChopperCommand, 
     # StarGunner
   ]
-  epochs: 100
+  epochs: 10000
   steps: 1.75e6  # gradient steps
   device: cuda
   do_checkpoint: True  # whether save optimizer
@@ -56,17 +56,17 @@ training:
       should: True
     second_stage:
       should: False
-    learning_rate: 0.0001
-    batch_size: 2048  # all batch_size in this file is the num in total, not per rank
+    learning_rate: 0.000025
+    batch_size: 256  # all batch_size in this file is the num in total, not per rank
     max_grad_norm: 1.0
   world:
     first_stage:
-      learning_rate: 0.0001
+      learning_rate: 0.000025
     second_stage:
       learning_rate: 0.00005
     # batch size will be this value when not using imagnation data, 
     # otherwise will be this value minus ${training.action.batch_size_in_imagination}
-    batch_size: 512
+    batch_size: 256
     max_grad_norm: 1.0
     weight_decay: 0.01
   action:

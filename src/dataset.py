@@ -131,6 +131,7 @@ class AtariTrajInMemory(AtariTrajectory):
             envs, 
             disable=not show_pbar, 
             desc='Load dataset into memory',
+            ncols=80,
         ):
             self.traj_data[env] = {}
 

@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # checkpoints of JOWA
-ckpt_path="checkpoints/JOWA"
+game=MsPacman
+ckpt_path="checkpoints/""$game"
 model_name="JOWA_150M"  # in [JOWA_150M, JOWA_70M, JOWA_40M]
 
-game=MsPacman
 num_rollouts=16
-num_gpus=8
 buffer_size=(1 2 3 4 5 6 7 8)
+# 指定要使用的GPU ID列表
+gpu_list=(0)
 
 # no planning
 use_planning=False
@@ -18,20 +19,26 @@ horizon=0
 echo model: "$ckpt_path"/"$model_name".pt
 echo game: "$game"
 echo buffer_size: "${buffer_size[*]}"
-echo num_rollouts: "$num_rollouts"
-echo num_gpus: "$num_gpus"
+echo num_rollouts: "$num_rollouts" 
+echo "Using GPUs: ${gpu_list[*]}"
 
+
+# 为本次运行创建一个唯一的、带时间戳的日志目录
+log_dir="$ckpt_path/logs/$(date +%Y-%m-%d)/$(date +%H-%M-%S)"
+mkdir -p "$log_dir"
 
 k=0
 max_steps=108000
 
-
 for i in "${buffer_size[@]}"; do
-    log_name="$model_name"_play_"$game"_buffer_size_"$i"_plan_"$use_planning"_bw_"$beam_width"_h_"$horizon"_date_$(date +%m%d_%H%M%S)_$RANDOM.log
+    # 从日志文件名中移除日期和时间，因为它们现在是目录名的一部分
+    log_name="$log_dir"/"$model_name"_play_"$game"_buffer_size_"$i"_plan_"$use_planning"_bw_"$beam_width"_h_"$horizon".log
     > $log_name  # clear log
 
-    gpu_id=$((k % "$num_gpus"))
-    device="cuda:$gpu_id" 
+    # 从你的GPU列表中选择一个
+    num_gpus_in_list=${#gpu_list[@]}
+    gpu_index=$((k % num_gpus_in_list))
+    device="cuda:${gpu_list[$gpu_index]}" 
     k=$((k + 1))
 
     python src/play.py \
@@ -51,3 +58,4 @@ for i in "${buffer_size[@]}"; do
     hydra/job_logging=disabled hydra/hydra_logging=disabled \
     >> $log_name 2>&1 &
 done
+echo "All evaluations started. Check logs in $log_dir for details."

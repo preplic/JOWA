@@ -1,3 +1,4 @@
+# CUDA_VISIBLE_DEVICES=7 torchrun --nproc_per_node=1 --nnodes=1 --node_rank=0 --master_addr=127.0.0.1 --master_port=39500 src/train.py hydra/job_logging=disabled hydra/hydra_logging=disabled
 import os
 import random
 import re
@@ -150,9 +151,12 @@ class Trainer:
 
         # data
         # dataset for pretrain stage 1
-        self.train_dataset = AtariTrajectory(
-            data_dir='dataset/downsampled/trajectory/data', 
-            csv_dir='dataset/downsampled/segment/csv', 
+        # downsampled_dir='/data0/user/pcpan/25summer/SDWM/dataset/downsampled_few/'
+        downsampled_dir='/data0/user/pcpan/25summer/JOWA/dataset/downsampled/'
+        self.train_dataset = AtariTrajInMemory(
+        # self.train_dataset = AtariTrajectory(
+            data_dir=downsampled_dir+'trajectory/data',
+            csv_dir=downsampled_dir+'segment/csv', 
             envs=cfg.common.envs,
             csv_suffix="_right_padding", 
         )
@@ -205,7 +209,7 @@ class Trainer:
             )
             self.imagine_replay = ReplayBuffer(
                 sequence_length=cfg.common.sequence_length, 
-                capacity=len(self.train_dataset) * 10,
+                capacity=len(self.train_dataset),
                 obs_shape=(1, 84, 84),
                 device=self.device,
             )
@@ -298,7 +302,12 @@ class Trainer:
     def run(self) -> None:
         keep_running = True
 
-        for epoch in range(self.start_epoch, 1 + self.cfg.common.epochs):
+        for epoch in tqdm(
+            range(self.start_epoch, 1 + self.cfg.common.epochs),
+            desc="Epoch Progress",
+            disable=not self.is_main_process,
+            ncols=80
+        ):
             if self.is_main_process:
                 print(f"\nEpoch {epoch} / {self.cfg.common.epochs}\n")
                 start_time = time.time()
@@ -351,6 +360,7 @@ class Trainer:
             disable=not self.is_main_process, 
             desc=f"Train {self.training_desc}",
             file=sys.stdout,
+            ncols=80
         ):
             intermediate_losses = defaultdict(float)
             extra_logs = {}
@@ -684,7 +694,7 @@ class Trainer:
             ret_all = torch.cat(ret_all, dim=0)
             mean_ret_all = ret_all.mean().item()
 
-            if self.is_main_process and mean_ret_all >= self.best_return * 0.8:
+            if self.is_main_process and mean_ret_all > self.best_return:
                 self.save_checkpoint(
                     epoch, 
                     save_agent_only=not self.cfg.common.do_checkpoint, 

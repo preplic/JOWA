@@ -24,8 +24,8 @@ initialization:
 common:
   env: YarsRevenge
   envs: ['${common.env}']
-  epochs: 10000
-  steps: 50e3  # gradient steps
+  epochs: 300
+  steps: 50e4  # gradient steps
   device: cuda
   do_checkpoint: True  # whether save optimizer
   seed: 0
@@ -102,7 +102,7 @@ evaluation:
 
 datasets:
   train:
-    num_of_workers: 32  # per node, not per rank
+    num_of_workers: 8  # per node, not per rank
 
 hydra:
   run:

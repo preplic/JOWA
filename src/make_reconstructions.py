@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import torch
 from einops import rearrange
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
 
@@ -43,6 +43,47 @@ def insert_separators(imgs, separator_width=1, separator_color=255):
     return np.stack(imgs_with_separators)
 
 
+def add_text_label(img_array, label, label_width=120, font_size=10):
+    """Adds a text label to the left of a batch of images using PIL."""
+    b, h, w, c = img_array.shape
+    # Create a white canvas for the label
+    label_canvas_np = np.full((b, h, label_width, c), 255, dtype=img_array.dtype)
+
+    # Squeeze single channel if it exists for PIL compatibility
+    if c == 1:
+        label_canvas_np = label_canvas_np.squeeze(-1)
+
+    # Try to load a good font, fallback to a default one
+    try:
+        # A common font in Linux environments
+        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+    except IOError:
+        # Fallback for other environments or if font is not found
+        font = ImageFont.load_default()
+
+    # Add text to each image in the batch
+    for i in range(b):
+        # Convert numpy canvas to PIL Image
+        pil_img = Image.fromarray(label_canvas_np[i])
+        draw = ImageDraw.Draw(pil_img)
+
+        # Calculate text size to center it
+        if hasattr(draw, 'textbbox'):
+            bbox = draw.textbbox((0, 0), label, font=font)
+            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        else:
+            text_w, text_h = draw.textsize(label, font=font)
+
+        text_x = (label_width - text_w) // 2
+        text_y = (h - text_h) // 2
+        draw.text((text_x, text_y), label, font=font, fill=0)  # Black text
+        label_canvas_np[i] = np.array(pil_img)
+
+    if c == 1:
+        label_canvas_np = np.expand_dims(label_canvas_np, axis=-1)
+
+    return np.concatenate((label_canvas_np, img_array), axis=2)
+
 @torch.no_grad()
 def make_reconstructions_of_trajectories(
     batch, 
@@ -61,6 +102,7 @@ def make_reconstructions_of_trajectories(
         separator_width=separator_width, 
         separator_color=255,
     )
+    original_concate_frames = add_text_label(original_concate_frames, "Original")
     tokenizer_rec_frames = generate_reconstructions_with_tokenizer(
         batch, 
         tokenizer, 
@@ -70,6 +112,7 @@ def make_reconstructions_of_trajectories(
         separator_width=separator_width, 
         separator_color=255,
     )
+    tokenizer_concate_rec_frames = add_text_label(tokenizer_concate_rec_frames, "Tokenizer")
     
     # teacher-forcing regression
     temp = tokenizer.encode(batch['observations'], should_preprocess=True)
@@ -115,6 +158,9 @@ def make_reconstructions_of_trajectories(
     teacher_forcing_regression_concate_rec_frames = get_concate_rec_frames_from_outputs(
         outputs
     )
+    teacher_forcing_regression_concate_rec_frames = add_text_label(
+        teacher_forcing_regression_concate_rec_frames, "Teacher-Forcing"
+    )
     
     # auto-regression
     num_given_blocks = 4
@@ -141,6 +187,9 @@ def make_reconstructions_of_trajectories(
 
     outputs = jowa(given_blocks_tokens, batch['envs'])
     auto_regression_concate_rec_frames = get_concate_rec_frames_from_outputs(outputs)
+    auto_regression_concate_rec_frames = add_text_label(
+        auto_regression_concate_rec_frames, "Auto-Regression"
+    )
     
     # save
     separator = np.full(
@@ -159,7 +208,10 @@ def make_reconstructions_of_trajectories(
     )
     res = np.squeeze(res, axis=-1)  # due to gray scale
     
-    for i, image in enumerate(res):
+    # 保存3张图片: 第一张、中间一张和最后一张
+    indices_to_save = sorted(list(set([0, len(res) // 2, len(res) - 1])))
+    for i in indices_to_save:
+        image = res[i]
         img = Image.fromarray(image)
         img.save(save_dir / f'{str(jowa)}_epoch_{epoch:03d}_t_{i:03d}.png')
 

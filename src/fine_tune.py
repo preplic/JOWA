@@ -1,5 +1,7 @@
+# CUDA_VISIBLE_DEVICES=0,5 torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0 --master_addr=127.0.0.1 --master_port=39500 src/fine_tune.py hydra/job_logging=disabled hydra/hydra_logging=disabled common.env=YarsRevenge training.action.use_imagination=True training.action.planning_horizon=2
 import warnings
-
+import os
+import wandb
 import torch
 import torch.distributed as dist
 from omegaconf import DictConfig
@@ -12,6 +14,10 @@ from utils import hydra_main
 
 warnings.filterwarnings("ignore")
 
+# login W&B
+api_key = os.environ.get("WANDB_API_KEY")
+if api_key:
+    wandb.login(key=api_key)
 
 class Tuner(Trainer):
     def __init__(self, cfg: DictConfig) -> None:
@@ -61,7 +67,7 @@ class Tuner(Trainer):
             )
             self.imagine_replay = ReplayBuffer(
                 sequence_length=cfg.common.sequence_length, 
-                capacity=len(self.train_dataset) * 10,
+                capacity=len(self.train_dataset),
                 obs_shape=(1, 84, 84),
                 device=self.device,
             )
